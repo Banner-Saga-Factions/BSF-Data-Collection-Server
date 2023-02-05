@@ -36,7 +36,7 @@ const formatFileHeader = (data: any) => {
 data = [
 {
     user_id: ${data.user_id},
-    display_name: ${data.display_name}
+    display_name: '${data.display_name}'
 }`
 }
 
@@ -72,7 +72,8 @@ app.use('/services', async (req, res) => {
     if (server_res.status !== 200) return;
 
     if (req.path.startsWith("/session/steam/overlay/") || 
-        req.path.startsWith("/chat/")) return;
+        req.path.startsWith("/chat/") || 
+        server_res.data.class === "tbs.srv.chat.ChatMsg") return;
 
     if (req.path.startsWith("/auth/login")) {
         await fs.writeFile(`./sessions/${server_res.data.session_key}.js`, formatFileHeader(server_res.data))
