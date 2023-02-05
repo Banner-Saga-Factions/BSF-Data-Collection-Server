@@ -1,12 +1,12 @@
 import express from 'express';
 import https from "https";
-import axios, { AxiosResponse } from 'axios';
+import axios from 'axios';
 import { promises as fs, readFileSync } from 'fs';
 import { inspect } from 'util';
 import * as bodyParser from 'body-parser';
 
 const app = express();
-axios.defaults.baseURL = "http://tbs-dev-live.stoicstudio.com"
+axios.defaults.baseURL = "http://tbs-dev-live.stoicstudio.com/services"
 app.disable('etag'); // disables caching responses
 
 const ServerOptions = {
@@ -71,10 +71,10 @@ app.use('/services', async (req, res) => {
     // ignore request if it fails
     if (server_res.status !== 200) return;
 
-    if (req.path.startsWith("/services/session/steam/overlay/") || 
-        req.path.startsWith("/services/chat/")) return;
+    if (req.path.startsWith("/session/steam/overlay/") || 
+        req.path.startsWith("/chat/")) return;
 
-    if (req.path.startsWith("/services/auth/login")) {
+    if (req.path.startsWith("/auth/login")) {
         await fs.writeFile(`./sessions/${server_res.data.session_key}.js`, formatFileHeader(server_res.data))
         return;
     }
@@ -83,12 +83,12 @@ app.use('/services', async (req, res) => {
     let session_key = req.path.substring(req.path.lastIndexOf("/") + 1)
 
     // ignore all the server pings with no data
-    if (req.path === `/services/game/${session_key}` && !server_res.data) return;
+    if (req.path === `/game/${session_key}` && !server_res.data) return;
 
     // format data string
     let data = formatReqRes(req, server_res.data);
 
-    if (req.url.startsWith("/services/auth/logout/")) {
+    if (req.url.startsWith("/auth/logout/")) {
         await fs.appendFile(`./sessions/${session_key}.js`, "];\nexport { data };");
     } else await fs.appendFile(`./sessions/${session_key}.js`, `, ${data}`)
     
@@ -130,7 +130,7 @@ app.get("/", async (_, res) => {
             }
         })()"> Submit </button>
         <p>For more information on the data collected please see this <a href="https://youtu.be/ne_xvSNU6Eo">video</a><br>
-        The source code for the server can be found <a href="https://github.com/Pieloaf/bsf-data-collection-server">here</a></p>
+        The source code for the server can be found <a href="https://github.com/Banner-Saga-Factions/BSF-Data-Collection-Server">here</a></p>
         <img src="https://cdn.discordapp.com/attachments/944279686882660413/1070781835971399770/steam_W3b9FcRJqF.gif" style="width: 950px"/>
     </body>
 </html>`);
