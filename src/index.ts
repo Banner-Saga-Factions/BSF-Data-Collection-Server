@@ -4,6 +4,7 @@ import axios from 'axios';
 import { promises as fs, readFileSync } from 'fs';
 import { inspect } from 'util';
 import * as bodyParser from 'body-parser';
+import { spawn } from 'child_process';
 
 const app = express();
 axios.defaults.baseURL = "http://tbs-dev-live.stoicstudio.com/services"
@@ -18,7 +19,7 @@ app.use(bodyParser.text({
     type: ['json', 'text']
 })); 
 
-const formatReqRes = (req: any, res: string) => {
+const formatReqRes = (req: any, body: any, res: string) => {
     let service = req.url.match(/\/services\/(.*)\//)?.[1].toUpperCase();
 
     return inspect({
@@ -26,7 +27,7 @@ const formatReqRes = (req: any, res: string) => {
         METHOD: req.method,
         SERVICE: service,
         TIMESTAMP: new Date().getTime(),
-        REQUEST: req.body,
+        REQUEST: body,
         RESPONSE: res
     }, { depth: 10 })
 };
@@ -57,9 +58,10 @@ app.use('/services', async (req, res) => {
         server_res = await axios({
             method: req.method,
             url: req.url,
-            data: body
+            data: body ? body : null
         });
     } catch (error) {
+        console.log(error);
         let err_res = (error as any).response
         res.status = err_res.status;
         res.send(err_res.data);
@@ -87,10 +89,14 @@ app.use('/services', async (req, res) => {
     if (req.path === `/game/${session_key}` && !server_res.data) return;
 
     // format data string
-    let data = formatReqRes(req, server_res.data);
+    let data = formatReqRes(req, body, server_res.data);
 
     if (req.url.startsWith("/auth/logout/")) {
         await fs.appendFile(`./sessions/${session_key}.js`, "];\nexport { data };");
+        let process = spawn('bash', ['./pushSession.sh', session_key]);
+        process.on('exit', (code: number) => {
+            console.log(`Session push exited with code: ${code}`);
+        });
     } else await fs.appendFile(`./sessions/${session_key}.js`, `, ${data}`)
     
 });
