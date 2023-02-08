@@ -20,7 +20,7 @@ app.use(bodyParser.text({
 })); 
 
 const formatReqRes = (req: any, body: any, res: string) => {
-    let service = req.url.match(/\/services\/(.*)\//)?.[1].toUpperCase();
+    let service = req.url.match(/\/(.*)\//)?.[1].toUpperCase();
 
     return inspect({
         URL: req.url,
@@ -47,7 +47,7 @@ app.use('/services', async (req, res) => {
         try {
             body = JSON.parse(req.body)
         } catch (err) {
-            body = req.body
+            body = req.body ? req.body : null
         }
     }
 
@@ -58,7 +58,7 @@ app.use('/services', async (req, res) => {
         server_res = await axios({
             method: req.method,
             url: req.url,
-            data: body ? body : null
+            data: body
         });
     } catch (error) {
         console.log(error);
