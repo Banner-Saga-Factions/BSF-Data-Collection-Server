@@ -20,7 +20,7 @@ app.use(bodyParser.text({
 })); 
 
 const formatReqRes = (req: any, body: any, res: string) => {
-    let service = req.url.match(/\/(.*)\//)?.[1].toUpperCase();
+    let service = (req.url as String).match(/\/(.*)\//)?.[1].toUpperCase();
 
     return inspect({
         URL: req.url,
@@ -39,6 +39,12 @@ data = [
     user_id: ${data.user_id},
     display_name: '${data.display_name}'
 }`
+}
+
+const fmtDate = (): string => {
+    let datePattern: RegExp = /(\d{2})\/(\d{2})\/(\d{4}), (\d{2}):(\d{2})/;
+    let [, DD, MM, YYYY, h, m]: any = datePattern.exec(new Date().toLocaleString('en-GB'));
+    return `${YYYY}-${MM}-${DD}_${h}-${m}`;
 }
 
 app.use('/services', async (req, res) => {
@@ -93,6 +99,7 @@ app.use('/services', async (req, res) => {
 
     if (req.url.startsWith("/auth/logout/")) {
         await fs.appendFile(`./sessions/${session_key}.js`, "];\nexport { data };");
+        await fs.rename(`./sessions/${session_key}.js`, `./sessions/${fmtDate()}_${session_key}.js`)
         let process = spawn('bash', ['./pushSession.sh', session_key]);
         process.on('exit', (code: number) => {
             console.log(`Session push exited with code: ${code}`);
