@@ -17,7 +17,9 @@ const ServerOptions = {
 
 app.use(bodyParser.text({
     type: ['json', 'text']
-})); 
+}));
+
+const sendWelcome: string[] = [];
 
 const formatReqRes = (req: any, body: any, res: string) => {
     let service = (req.url as String).match(/\/(.*)\//)?.[1].toUpperCase();
@@ -47,6 +49,23 @@ const fmtDate = (): string => {
     return `${YYYY}-${MM}-${DD}_${h}-${m}`;
 }
 
+const welcomeMsg = {
+        class: "tbs.srv.chat.ChatMsg",
+        msg: "Thank you for contributing to the development of the factions custom server <3",
+        room: "global",
+        user: 0,
+        username: "[Server]"
+}
+
+const handleLogout = async (session_key: string) => {
+    await fs.appendFile(`./sessions/${session_key}.js`, "];\nexport { data };");
+    await fs.rename(`./sessions/${session_key}.js`, `./sessions/${fmtDate()}_${session_key}.js`)
+    let process = spawn('bash', ['./pushSession.sh', session_key]);
+    process.on('exit', (code: number) => {
+        console.log(`Session push exited with code: ${code}`);
+    });
+}
+
 app.use('/services', async (req, res) => {
     let body: any;
     if (typeof req.body === 'string') {
@@ -67,11 +86,20 @@ app.use('/services', async (req, res) => {
             data: body
         });
     } catch (error) {
-        console.log(error);
         let err_res = (error as any).response
         res.status = err_res.status;
         res.send(err_res.data);
         return;
+    }
+    
+    // get session key from url
+    let session_key = req.path.substring(req.path.lastIndexOf("/") + 1)
+    {
+        let idx = sendWelcome.indexOf(session_key)
+        if (idx !== -1 && server_res.data.constructor === Array) {
+            server_res.data.push(welcomeMsg);
+            sendWelcome.splice(idx, 1);
+        }
     }
     res.send(server_res.data);
 
@@ -79,39 +107,37 @@ app.use('/services', async (req, res) => {
     // ignore request if it fails
     if (server_res.status !== 200) return;
 
-    if (req.path.startsWith("/session/steam/overlay/") || 
-        req.path.startsWith("/chat/") || 
-        server_res.data.class === "tbs.srv.chat.ChatMsg") return;
+    if (req.path.startsWith("/session/steam/overlay/") ||
+        req.path.startsWith("/chat/")) return;
 
     if (req.path.startsWith("/auth/login")) {
         await fs.writeFile(`./sessions/${server_res.data.session_key}.js`, formatFileHeader(server_res.data))
+        sendWelcome.push(server_res.data.session_key);
         return;
     }
 
-    // get session key from url
-    let session_key = req.path.substring(req.path.lastIndexOf("/") + 1)
+    if (server_res.data.constructor === Array)
+        server_res.data = (server_res.data as any[]).filter(msg => msg.class !== "tbs.srv.chat.ChatMsg")
+
+    if (server_res.data.length === 0)
+        server_res.data = null
 
     // ignore all the server pings with no data
-    if (req.path === `/game/${session_key}` && !server_res.data) return;
+    if (req.path === `/game/${session_key}` && (!server_res.data || server_res.data?.length === 0)) return;
 
     // format data string
     let data = formatReqRes(req, body, server_res.data);
 
     if (req.url.startsWith("/auth/logout/")) {
-        await fs.appendFile(`./sessions/${session_key}.js`, "];\nexport { data };");
-        await fs.rename(`./sessions/${session_key}.js`, `./sessions/${fmtDate()}_${session_key}.js`)
-        let process = spawn('bash', ['./pushSession.sh', session_key]);
-        process.on('exit', (code: number) => {
-            console.log(`Session push exited with code: ${code}`);
-        });
+        handleLogout(session_key);
     } else await fs.appendFile(`./sessions/${session_key}.js`, `, ${data}`)
-    
+
 });
 
 
 app.get("/", async (_, res) => {
-// I know this is ugly af but I was feeling lazy and this is where laziness ended up 🙃
-// this is primarily for logging requests, not for a fancy looking webpage :P
+    // I know this is ugly af but I was feeling lazy and this is where laziness ended up 🙃
+    // this is primarily for logging requests, not for a fancy looking webpage :P
     res.send(`
 <html>
     <head>
